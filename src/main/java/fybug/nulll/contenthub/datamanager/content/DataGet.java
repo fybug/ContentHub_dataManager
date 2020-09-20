@@ -83,7 +83,7 @@ class DataGet extends HubControl {
     /**
      * 根据当前条件搜索数据
      *
-     * @return 正常在 {@code data} 映射中加入 {@link ContR} 数组，发生错误则在 {@code error} 映射中写入状态码
+     * @return 正常在 {@code data} 映射中加入 {@link ContListR} 数组，发生错误则在 {@code error} 映射中写入状态码
      */
     public abstract
     Map<String, Object> queryDatalist();
@@ -95,7 +95,7 @@ class DataGet extends HubControl {
      *
      * @param id 数据的 id
      *
-     * @return 正常在 {@code data} 映射中加入 {@link ContR} 对象，发生错误则在 {@code error} 映射中写入状态码
+     * @return 正常在 {@code data} 映射中加入 {@link ContListR} 对象，发生错误则在 {@code error} 映射中写入状态码
      */
     public abstract
     Map<String, Object> queryData(int id);

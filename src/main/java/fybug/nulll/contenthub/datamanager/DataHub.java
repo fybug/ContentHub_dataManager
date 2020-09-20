@@ -1,7 +1,8 @@
 package fybug.nulll.contenthub.datamanager;
+import lombok.Getter;
 
 public
 class DataHub {
-    int id;
+    @Getter int id;
 
 }

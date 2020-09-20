@@ -2,14 +2,14 @@ package fybug.nulll.contenthub.datamanager.content;
 import lombok.Data;
 
 /**
- * <h2>内容属性对象.</h2>
+ * <h2>内容属性展示用对象.</h2>
  *
  * @author fybug
  * @version 0.0.1
  */
 @Data
 public
-class ContR {
+class ContListR {
     /** 数据的 id */
     private int id;
     /** 数据的标题 */
