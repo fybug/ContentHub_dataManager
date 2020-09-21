@@ -5,4 +5,8 @@ public
 class DataHub {
     @Getter int id;
 
+    public
+    DataHub(int id) {
+        this.id = id;
+    }
 }

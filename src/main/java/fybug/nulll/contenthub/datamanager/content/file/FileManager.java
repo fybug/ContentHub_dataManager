@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import fybug.nulll.contenthub.datamanager.DataHub;
 import fybug.nulll.contenthub.datamanager.DataManager;
@@ -14,12 +15,23 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public
 class FileManager extends HubControl {
+
+    /** 当前管理的数据根目录 */
     public final Path Dirpath;
 
+    /**
+     * 初始化文件管理器
+     *
+     * @param dataHub 数据容器
+     * @param path    数据根路径
+     *
+     * @throws IOException 数据根目录创建失败
+     */
     public
-    FileManager(DataHub dataHub, Path path) {
+    FileManager(DataHub dataHub, Path path) throws IOException {
         super(dataHub);
         Dirpath = path;
+        Files.createDirectories(Dirpath);
     }
 
     /*--------------------------------------------------------------------------------------------*/
@@ -33,6 +45,8 @@ class FileManager extends HubControl {
      * @param inputStream 临时文件用的输入流
      *
      * @return 临时文件路径
+     *
+     * @throws IOException 无法创建临时目录 | 无法写入临时文件
      */
     public
     File putTemp(int id, InputStream inputStream) throws IOException {
@@ -65,20 +79,46 @@ class FileManager extends HubControl {
      *
      * @param id       数据的 id
      * @param tempfile 临时文件的路径
+     *
+     * @throws IOException 无法移动文件
      */
     public
-    void putFile(int id, File tempfile) throws IOException {
-        Files.move(tempfile.toPath(), Dirpath.relativize(Path.of("da_" + id)), REPLACE_EXISTING);
+    void putFile(int id, File tempfile) throws IOException
+    { Files.move(tempfile.toPath(), Dirpath.resolve(Path.of("da_" + id)), REPLACE_EXISTING); }
+
+    /**
+     * 获取数据的路径
+     *
+     * @param id 数据 id
+     *
+     * @return 数据的路径
+     *
+     * @throws IOException 数据不存在或非数据文件
+     */
+    public
+    Path getDatapath(int id) throws IOException {
+        var pa = Dirpath.resolve(Path.of("da_" + id));
+        if (Files.isExecutable(pa)) {
+            if (Files.isDirectory(pa))
+                throw new IOException("id: " + id + " is Dir,not is data!");
+            return pa;
+        }
+        throw new IOException("id: " + id + " not is data!");
     }
 
     /*-------------------------------*/
 
     public
-    void putGroupFile(int id, File tempfile) {
+    void putGroupFile(int id, List<File> tempfile) throws IOException {
+        createGroup(id);
+
         // todo 自动分配组内 id
     }
 
-    public
+    // 组文件夹：da_{id}
+    // id 记录：h{id}_id
+    // 数据记录：h{id}_re
+    protected
     void createGroup(int id) throws IOException {
         // 组文件夹的路径
         var pa = Dirpath.relativize(Path.of("da_" + id));
