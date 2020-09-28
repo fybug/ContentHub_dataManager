@@ -31,10 +31,10 @@ import static java.nio.file.StandardOpenOption.WRITE;
  * <p>
  * 使用 {@link Group#create(int, FileManager, SyLock)} 进行构造<br/>
  * 用于管理一组数据以及其组文件夹<br/>
- * 考虑到数据量的庞大且为了保持数据一致性，数据获取的时候均采用接口注入处理数据的方式，获取到数据的时候建议直接对外输出，而不是缓存起来
+ * 为了保持数据一致性，在对数据进行操作的时候会锁住记录文件与组对象
  *
  * @author fybug
- * @version 0.0.1
+ * @version 0.0.2
  * @see FileManager
  */
 public
@@ -53,7 +53,13 @@ class Group {
 
     /*--------------------------------------------------------------------------------------------*/
 
-    private
+    /**
+     * 构造组对象
+     *
+     * @param id          数据组 id
+     * @param fileManager 文件管理对象
+     * @param lock        组锁
+     */
     Group(int id, FileManager fileManager, SyLock lock) {
         this.id = id;
         fm = fileManager;
@@ -91,6 +97,24 @@ class Group {
     }
 
     /**
+     * @param id   组数据的 id
+     * @param fm   文件管理器
+     * @param lock 锁对象
+     *
+     * @return 组对象
+     *
+     * @throws IOException 组空间不存在
+     */
+    public static
+    Group get(int id, FileManager fm, SyLock lock) throws IOException {
+        return lock.tryread(IOException.class, () -> {
+            var g = new Group(id, fm, lock);
+            Group.checkGroup(g);
+            return g;
+        });
+    }
+
+    /**
      * 移除组数据
      *
      * @throws IOException 文件系统错误
@@ -118,7 +142,7 @@ class Group {
      *
      * @param ids 数据的 id
      *
-     * @throws IOException           无法读取文件
+     * @throws IOException           无法打开文件
      * @throws DataOccuipedException 数据空间被占用
      * @throws NoDataException       数据不存在
      */

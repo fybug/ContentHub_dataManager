@@ -16,6 +16,19 @@ import fybug.nulll.pdconcurrent.SyLock;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
+/**
+ * <h2>文件内容管理器.</h2>
+ * 提供数据的管理，组数据对象的获取等。<br/>
+ * 内部使用高一致性的 {@link SMapCache} 缓存对象按照 id 存放数据的锁，通过该锁保持单个数据的一致性<br/>
+ * 不提供 id 记录或管理，需要单独实现并传入
+ * <br/><br/>
+ * 存储数据前使用 {@link #putTemp(int, InputStream)} 存放到临时文件中，然后使用 {@link #putFile(int, File)} 移动临时文件为数据文件。<br/>
+ * 组数据通过 {@link Group} 对象管理单个组的数据。
+ *
+ * @author fybug
+ * @version 0.0.1
+ * @see Group
+ */
 public
 class FileManager extends HubControl {
 
@@ -125,10 +138,65 @@ class FileManager extends HubControl {
         });
     }
 
+    /**
+     * 获取数据的内容
+     *
+     * @param id 数据的 id
+     *
+     * @return 读取用的数据流
+     *
+     * @throws IOException 无法打开文件
+     * @throws Exception   锁缓存发生错误
+     */
+    public
+    InputStream getData(int id) throws Exception {
+        return LockMap.get(id)
+                      .tryread(IOException.class, () -> Files.newInputStream(Dirpath.resolve(Path.of(
+                              "da_" + id))));
+    }
+
+    /**
+     * 删除数据
+     *
+     * @param id 数据的 id
+     *
+     * @throws IOException 文件系统错误
+     * @throws Exception   锁缓存发生错误
+     */
+    public
+    void removeData(int id) throws Exception {
+        LockMap.get(id)
+               .trywrite(IOException.class, () -> Files.deleteIfExists(Dirpath.resolve(Path.of(
+                       "da_" + id))));
+    }
+
     /*-------------------------------*/
 
+    /**
+     * 创建组数据
+     *
+     * @param id 新的组数据的 id
+     *
+     * @return 组对象
+     *
+     * @throws IOException           文件系统错误
+     * @throws DataOccuipedException 数据位置被占用
+     */
     public
-    Group createGroup(int id) {
-        return null;
+    Group createGroup(int id) throws Exception {
+        return Group.create(id, this, LockMap.get(id));
     }
+
+    /**
+     * 获取组对象
+     *
+     * @param id 组数据 id
+     *
+     * @return 组对象
+     *
+     * @throws IOException 组数据不存在
+     * @throws Exception   锁缓存错误
+     */
+    public
+    Group getGroup(int id) throws Exception { return Group.get(id, this, LockMap.get(id)); }
 }
