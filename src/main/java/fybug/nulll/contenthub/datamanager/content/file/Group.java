@@ -15,7 +15,6 @@ import fybug.nulll.contenthub.datamanager.content.file.error.NoDataException;
 import fybug.nulll.pdcache.PDCache;
 import fybug.nulll.pdcache.supplier.memory.SMapCache;
 import fybug.nulll.pdconcurrent.SyLock;
-import fybug.nulll.pdconcurrent.fun.tryConsumer;
 import lombok.Getter;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -116,37 +115,36 @@ class Group {
 
     /**
      * 读取数据内容
-     * <p>
-     * 为保持数据同步性，采用接口进行数据的交付
      *
      * @param ids 数据的 id
-     * @param v   数据获取接口
      *
      * @throws IOException           无法读取文件
      * @throws DataOccuipedException 数据空间被占用
      * @throws NoDataException       数据不存在
      */
     public
-    void readData(int ids, tryConsumer<InputStream, IOException> v) throws Exception {
-        lock.tryread(Exception.class, () -> {
+    InputStream readData(int ids) throws Exception {
+        return lock.tryread(Exception.class, () -> {
             // 组文件夹的路径
             var rootpa = checkGroup(this);
 
-            reicLock.tryread(Exception.class, () -> {
+            return reicLock.tryread(Exception.class, () -> {
                 // 生成当前数据路径
                 Path dapa = rootpa.resolve(Path.of("gro_" + ids));
-                /* 检查数据是否可用 */
-                if (Files.isExecutable(dapa)) {
-                    // 数据被占用
-                    if (Files.isDirectory(dapa)) {
-                        throw new DataOccuipedException(ids);
-                    }
+                return idLock.get(ids).tryread(Exception.class, () -> {
+                    /* 检查数据是否可用 */
+                    if (Files.isExecutable(dapa)) {
+                        // 数据被占用
+                        if (Files.isDirectory(dapa)) {
+                            throw new DataOccuipedException(ids);
+                        }
 
-                    // 交由外部处理数据流
-                    v.accept(Files.newInputStream(dapa));
-                } else {
-                    throw new NoDataException(ids);
-                }
+                        // 交由外部处理数据流
+                        return Files.newInputStream(dapa);
+                    } else {
+                        throw new NoDataException(ids);
+                    }
+                });
             });
         });
     }
