@@ -1,4 +1,4 @@
-package fybug.nulll.contenthub.datamanager.content.file;
+package fybug.nulll.contenthub.datamanager.content.datafile;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
@@ -10,8 +10,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
 
-import fybug.nulll.contenthub.datamanager.content.file.error.DataOccuipedException;
-import fybug.nulll.contenthub.datamanager.content.file.error.NoDataException;
+import fybug.nulll.contenthub.datamanager.content.datafile.error.DataOccuipedException;
+import fybug.nulll.contenthub.datamanager.content.datafile.error.NoDataException;
 import fybug.nulll.pdcache.PDCache;
 import fybug.nulll.pdcache.supplier.memory.SMapCache;
 import fybug.nulll.pdconcurrent.SyLock;
@@ -29,12 +29,12 @@ import static java.nio.file.StandardOpenOption.WRITE;
 /**
  * <h2>数据组管理对象.</h2>
  * <p>
- * 使用 {@link Group#create(int, FileManager, SyLock)} 进行构造<br/>
+ * 使用 {@link Group#create(int, FileManager, SyLock)} 和 {@link Group#get(int, FileManager, SyLock)} 进行构造<br/>
  * 用于管理一组数据以及其组文件夹<br/>
  * 为了保持数据一致性，在对数据进行操作的时候会锁住记录文件与组对象
  *
  * @author fybug
- * @version 0.0.2
+ * @version 0.0.3
  * @see FileManager
  */
 public
@@ -60,6 +60,7 @@ class Group {
      * @param fileManager 文件管理对象
      * @param lock        组锁
      */
+    private
     Group(int id, FileManager fileManager, SyLock lock) {
         this.id = id;
         fm = fileManager;
@@ -73,67 +74,6 @@ class Group {
     /** 当前管理的数据根目录 */
     public
     Path getDirpath() { return fm.Dirpath; }
-
-    /*--------------------------------------------------------------------------------------------*/
-
-    /**
-     * 创建组对象
-     *
-     * @param id   组的 id
-     * @param fm   文件管理器
-     * @param lock 锁对象
-     *
-     * @return 当前组
-     *
-     * @throws IOException           文件系统错误
-     * @throws DataOccuipedException 数据位置被占用
-     */
-    public static
-    Group create(int id, FileManager fm, SyLock lock) throws Exception {
-        return lock.trywrite(Exception.class, () -> {
-            keepGroupPath(fm.Dirpath, id);
-            return new Group(id, fm, lock);
-        });
-    }
-
-    /**
-     * @param id   组数据的 id
-     * @param fm   文件管理器
-     * @param lock 锁对象
-     *
-     * @return 组对象
-     *
-     * @throws IOException 组空间不存在
-     */
-    public static
-    Group get(int id, FileManager fm, SyLock lock) throws IOException {
-        return lock.tryread(IOException.class, () -> {
-            var g = new Group(id, fm, lock);
-            Group.checkGroup(g);
-            return g;
-        });
-    }
-
-    /**
-     * 移除组数据
-     *
-     * @throws IOException 文件系统错误
-     */
-    public
-    void remove() throws IOException {
-        lock.trywrite(IOException.class, () -> {
-            // 组文件夹的路径
-            var rootpa = checkGroup(this);
-
-            Files.list(rootpa).forEach(p -> {
-                try {
-                    Files.delete(p);
-                } catch ( IOException e ) {
-                    e.printStackTrace();
-                }
-            });
-        });
-    }
 
     /*--------------------------------------------------------------------------------------------*/
 
@@ -345,6 +285,67 @@ class Group {
                     Files.deleteIfExists(rootpa.resolve(Path.of("gro_" + groupid)));
                 }
             });
+        });
+    }
+
+    /*--------------------------------------------------------------------------------------------*/
+
+    /**
+     * 创建组对象，并分配其空间
+     *
+     * @param id   组的 id
+     * @param fm   文件管理器
+     * @param lock 锁对象
+     *
+     * @return 当前组
+     *
+     * @throws IOException           文件系统错误
+     * @throws DataOccuipedException 数据位置被占用
+     */
+    public static
+    Group create(int id, FileManager fm, SyLock lock) throws Exception {
+        keepGroupPath(fm.Dirpath, id);
+        return new Group(id, fm, lock);
+    }
+
+    /**
+     * 获取组对象并检查空间合法性
+     *
+     * @param id   组数据的 id
+     * @param fm   文件管理器
+     * @param lock 锁对象
+     *
+     * @return 组对象
+     *
+     * @throws IOException 组空间不存在
+     */
+    public static
+    Group get(int id, FileManager fm, SyLock lock) throws IOException {
+        var g = new Group(id, fm, lock);
+        Group.checkGroup(g);
+        return g;
+    }
+
+    /**
+     * 移除组数据，并释放文件管理器中的缓存
+     *
+     * @throws IOException 文件系统错误
+     */
+    public
+    void remove() throws IOException {
+        lock.trywrite(IOException.class, () -> {
+            // 组文件夹的路径
+            var rootpa = checkGroup(this);
+
+            Files.list(rootpa).forEach(p -> {
+                try {
+                    Files.delete(p);
+                } catch ( IOException e ) {
+                    e.printStackTrace();
+                }
+            });
+            // 移除缓存
+            fm.removeGroup(id);
         });
     }
 

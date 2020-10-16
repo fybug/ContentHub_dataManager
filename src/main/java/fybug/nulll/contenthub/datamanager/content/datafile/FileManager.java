@@ -1,15 +1,17 @@
-package fybug.nulll.contenthub.datamanager.content.file;
+package fybug.nulll.contenthub.datamanager.content.datafile;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 import fybug.nulll.contenthub.datamanager.DataHub;
 import fybug.nulll.contenthub.datamanager.DataManager;
 import fybug.nulll.contenthub.datamanager.HubControl;
-import fybug.nulll.contenthub.datamanager.content.file.error.DataOccuipedException;
-import fybug.nulll.contenthub.datamanager.content.file.error.NoDataException;
+import fybug.nulll.contenthub.datamanager.content.datafile.error.DataOccuipedException;
+import fybug.nulll.contenthub.datamanager.content.datafile.error.NoDataException;
 import fybug.nulll.pdcache.PDCache;
 import fybug.nulll.pdcache.supplier.memory.SMapCache;
 import fybug.nulll.pdconcurrent.SyLock;
@@ -26,15 +28,17 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
  * 组数据通过 {@link Group} 对象管理单个组的数据。
  *
  * @author fybug
- * @version 0.0.1
+ * @version 0.0.2
  * @see Group
  */
 public
 class FileManager extends HubControl {
-
     /** 当前管理的数据根目录 */
     public final Path Dirpath;
+    /** id 锁 */
     private final SMapCache<Integer, SyLock> LockMap;
+    /** 组对象缓存 */
+    private final Map<Integer, Group> groupCache = new HashMap<>();
 
     /**
      * 初始化文件管理器
@@ -184,7 +188,11 @@ class FileManager extends HubControl {
      */
     public
     Group createGroup(int id) throws Exception {
-        return Group.create(id, this, LockMap.get(id));
+        return LockMap.get(id).trywrite(Exception.class, () -> {
+            if (!groupCache.containsKey(id))
+                groupCache.put(id, Group.create(id, this, LockMap.get(id)));
+            return groupCache.get(id);
+        });
     }
 
     /**
@@ -198,5 +206,18 @@ class FileManager extends HubControl {
      * @throws Exception   锁缓存错误
      */
     public
-    Group getGroup(int id) throws Exception { return Group.get(id, this, LockMap.get(id)); }
+    Group getGroup(int id) throws Exception {
+        return LockMap.get(id).trywrite(Exception.class, () -> {
+            if (!groupCache.containsKey(id))
+                groupCache.put(id, Group.get(id, this, LockMap.get(id)));
+            return groupCache.get(id);
+        });
+    }
+
+    /**
+     * 释放组缓存
+     *
+     * @param id 组数据的 id
+     */
+    void removeGroup(int id) { groupCache.remove(id); }
 }

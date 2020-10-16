@@ -1,4 +1,4 @@
-package fybug.nulll.contenthub.datamanager.content.file.error;
+package fybug.nulll.contenthub.datamanager.content.datafile.error;
 
 /**
  * <h2>数据不存在异常.</h2>
